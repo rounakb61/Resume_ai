@@ -19,8 +19,11 @@ const statusColor: Record<string, string> = {
 };
 
 export default function CandidateDashboard() {
-  const { data: applications } = useListApplications();
-  const { data: interviews } = useListInterviews();
+  const candidateIdStr = localStorage.getItem("candidateId");
+  const candidateId = candidateIdStr ? parseInt(candidateIdStr, 10) : undefined;
+
+  const { data: applications } = useListApplications(candidateId ? { candidateId } : undefined);
+  const { data: interviews } = useListInterviews(candidateId ? { candidateId } : undefined);
 
   const stats = [
     { label: "Active Applications", value: applications?.length || 0, icon: Briefcase, color: "text-blue-400", bg: "bg-blue-500/10" },

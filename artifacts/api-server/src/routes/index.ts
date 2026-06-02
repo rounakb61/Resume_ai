@@ -19,4 +19,13 @@ router.use(analyticsRouter);
 router.use(copilotRouter);
 router.use(onboardingRouter);
 
+router.post("/recruiter/login", (req, res) => {
+  const { username, password } = req.body;
+  if (username === "admin" && password === "admin123") {
+    res.json({ success: true, role: "recruiter" });
+  } else {
+    res.status(401).json({ error: "Invalid credentials" });
+  }
+});
+
 export default router;

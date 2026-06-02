@@ -18,6 +18,7 @@ export const jobsTable = pgTable("jobs", {
 export const candidatesTable = pgTable("candidates", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  password: text("password"),
   email: text("email").notNull(),
   phone: text("phone"),
   location: text("location"),

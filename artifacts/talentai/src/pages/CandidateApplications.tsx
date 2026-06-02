@@ -15,7 +15,10 @@ const statusColor: Record<string, string> = {
 };
 
 export default function CandidateApplications() {
-  const { data: applications, isLoading } = useListApplications();
+  const candidateIdStr = localStorage.getItem("candidateId");
+  const candidateId = candidateIdStr ? parseInt(candidateIdStr, 10) : undefined;
+  
+  const { data: applications, isLoading } = useListApplications(candidateId ? { candidateId } : undefined);
 
   return (
     <CandidateLayout>

@@ -20,7 +20,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
 
   return (
-    <div className="min-h-screen bg-background flex text-foreground">
+    <div className="h-screen bg-background flex text-foreground overflow-hidden">
       {/* Sidebar */}
       <aside className="w-64 shrink-0 border-r border-white/5 bg-[hsl(222,47%,9%)] flex flex-col">
         {/* Logo */}

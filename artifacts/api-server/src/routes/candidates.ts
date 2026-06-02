@@ -65,6 +65,28 @@ router.post("/candidates", async (req, res): Promise<void> => {
   res.status(201).json(formatCandidate(c as Candidate));
 });
 
+router.post("/candidates/login", async (req, res): Promise<void> => {
+  const { name, password } = req.body;
+  if (!name || !password) {
+    res.status(400).json({ error: "Name and password are required" });
+    return;
+  }
+  
+  const [c] = await db.select().from(candidatesTable).where(
+    and(
+      eq(candidatesTable.name, name),
+      eq(candidatesTable.password, password)
+    )
+  );
+
+  if (!c) {
+    res.status(401).json({ error: "Invalid credentials" });
+    return;
+  }
+
+  res.json({ success: true, candidateId: c.id });
+});
+
 router.get("/candidates/:id", async (req, res): Promise<void> => {
   const params = GetCandidateParams.safeParse(req.params);
   if (!params.success) {
