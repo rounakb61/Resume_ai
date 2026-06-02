@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { interviewsTable, candidatesTable, jobsTable, type Interview, type Candidate, type Job } from "@workspace/db";
-import crypto from "crypto";
+import { db, interviewsTable, candidatesTable, jobsTable, type Interview, type Candidate, type Job } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 import {
   ListInterviewsQueryParams,
   CreateInterviewBody,
@@ -31,17 +31,19 @@ router.get("/interviews", async (req, res): Promise<void> => {
   }
   const { candidateId, jobId, status } = parsed.data;
 
-  const rows = interviewsTable.findMany(interview => {
-    let match = true;
-    if (candidateId && interview.candidateId !== candidateId) match = false;
-    if (jobId && interview.jobId !== jobId) match = false;
-    if (status && interview.status !== status) match = false;
-    return match;
-  }).map(interview => {
-    const candidate = candidatesTable.findFirst(c => c.id === interview.candidateId);
-    const job = jobsTable.findFirst(j => j.id === interview.jobId);
+  const conditions = [];
+  if (candidateId) conditions.push(eq(interviewsTable.candidateId, candidateId));
+  if (jobId) conditions.push(eq(interviewsTable.jobId, jobId));
+  if (status) conditions.push(eq(interviewsTable.status, status as any));
+
+  const interviews = await db.select().from(interviewsTable).where(conditions.length > 0 ? and(...conditions) : undefined);
+  interviews.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  const rows = await Promise.all(interviews.map(async (interview: any) => {
+    const [candidate] = await db.select().from(candidatesTable).where(eq(candidatesTable.id, interview.candidateId));
+    const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, interview.jobId));
     return { ...interview, candidate, job };
-  }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }));
 
   res.json(rows.map(formatInterview));
 });
@@ -52,28 +54,16 @@ router.post("/interviews", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const now = new Date();
-  const [interview] = interviewsTable.insert({
+  const [interview] = await db.insert(interviewsTable).values({
     candidateId: parsed.data.candidateId,
     jobId: parsed.data.jobId,
     scheduledAt: parsed.data.scheduledAt ? new Date(parsed.data.scheduledAt) : null,
     status: "scheduled",
-    id: Math.floor(Math.random() * 1000000),
-    transcript: null,
-    technicalScore: null,
-    communicationScore: null,
-    relevanceScore: null,
-    confidenceScore: null,
-    problemSolvingScore: null,
-    overallScore: null,
-    aiNotes: null,
-    createdAt: now,
-    updatedAt: now
-  } as Interview);
+  }).returning();
 
-  const candidate = candidatesTable.findFirst(c => c.id === interview.candidateId);
-  const job = jobsTable.findFirst(j => j.id === interview.jobId);
-  res.status(201).json(formatInterview({ ...interview, candidate: candidate ?? null, job: job ?? null }));
+  const [candidate] = await db.select().from(candidatesTable).where(eq(candidatesTable.id, interview.candidateId));
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, interview.jobId));
+  res.status(201).json(formatInterview({ ...interview, candidate: candidate as Candidate ?? null, job: job as Job ?? null }));
 });
 
 router.get("/interviews/:id", async (req, res): Promise<void> => {
@@ -83,16 +73,16 @@ router.get("/interviews/:id", async (req, res): Promise<void> => {
     return;
   }
   
-  const interview = interviewsTable.findFirst(i => i.id === params.data.id);
+  const [interview] = await db.select().from(interviewsTable).where(eq(interviewsTable.id, params.data.id));
   if (!interview) {
     res.status(404).json({ error: "Interview not found" });
     return;
   }
   
-  const candidate = candidatesTable.findFirst(c => c.id === interview.candidateId);
-  const job = jobsTable.findFirst(j => j.id === interview.jobId);
+  const [candidate] = await db.select().from(candidatesTable).where(eq(candidatesTable.id, interview.candidateId));
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, interview.jobId));
   
-  res.json(formatInterview({ ...interview, candidate, job }));
+  res.json(formatInterview({ ...interview, candidate: candidate as Candidate, job: job as Job }));
 });
 
 router.patch("/interviews/:id", async (req, res): Promise<void> => {
@@ -106,20 +96,23 @@ router.patch("/interviews/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const updateData: Record<string, unknown> = { ...parsed.data, updatedAt: new Date() };
+  const updateData: any = { ...parsed.data, updatedAt: new Date() };
   if (parsed.data.scheduledAt) {
     updateData.scheduledAt = new Date(parsed.data.scheduledAt);
   }
   
-  const updated = interviewsTable.update(params.data.id, updateData);
-  const interview = updated[0];
+  const [interview] = await db.update(interviewsTable)
+    .set(updateData)
+    .where(eq(interviewsTable.id, params.data.id))
+    .returning();
+    
   if (!interview) {
     res.status(404).json({ error: "Interview not found" });
     return;
   }
-  const candidate = candidatesTable.findFirst(c => c.id === interview.candidateId);
-  const job = jobsTable.findFirst(j => j.id === interview.jobId);
-  res.json(formatInterview({ ...interview, candidate: candidate ?? null, job: job ?? null }));
+  const [candidate] = await db.select().from(candidatesTable).where(eq(candidatesTable.id, interview.candidateId));
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, interview.jobId));
+  res.json(formatInterview({ ...interview, candidate: candidate as Candidate ?? null, job: job as Job ?? null }));
 });
 
 router.post("/interviews/:id/analyze", async (req, res): Promise<void> => {
@@ -152,7 +145,7 @@ router.post("/interviews/:id/analyze", async (req, res): Promise<void> => {
   else if (overallScore >= 80) recommendation = "Hire";
   else if (overallScore < 65) recommendation = "Reject";
 
-  interviewsTable.update(params.data.id, {
+  await db.update(interviewsTable).set({
     transcript,
     technicalScore: technical,
     communicationScore: communication,
@@ -163,7 +156,7 @@ router.post("/interviews/:id/analyze", async (req, res): Promise<void> => {
     status: "completed",
     aiNotes: `AI Analysis: Candidate demonstrated ${technical >= 80 ? "strong" : "moderate"} technical knowledge. Communication was ${communication >= 80 ? "clear and articulate" : "adequate"}. Problem solving ability ${problemSolving >= 80 ? "exceeded" : "met"} expectations.`,
     updatedAt: new Date()
-  });
+  }).where(eq(interviewsTable.id, params.data.id));
 
   res.json({
     technicalScore: technical,

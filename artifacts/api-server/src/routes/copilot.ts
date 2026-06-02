@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
-import { candidatesTable, jobsTable, applicationsTable } from "@workspace/db";
+import { db, candidatesTable, applicationsTable } from "@workspace/db";
 import { CopilotChatBody } from "@workspace/api-zod";
+import { isNotNull, isNotNull as isNotNullFn } from "drizzle-orm"; // We can filter in memory or via db
 
 const router: IRouter = Router();
 
@@ -17,13 +18,14 @@ router.post("/copilot/chat", async (req, res): Promise<void> => {
   let suggestions: string[] = [];
 
   if (lower.includes("top") && (lower.includes("candidate") || lower.includes("applicant"))) {
-    const topCandidates = candidatesTable.findMany()
-      .filter(c => c.finalScore !== null && c.finalScore !== undefined)
-      .sort((a, b) => b.finalScore - a.finalScore)
+    const allCandidates = await db.select().from(candidatesTable);
+    const topCandidates = allCandidates
+      .filter((c: any) => c.finalScore !== null && c.finalScore !== undefined)
+      .sort((a: any, b: any) => b.finalScore - a.finalScore)
       .slice(0, 5);
       
     if (topCandidates.length > 0) {
-      response = `Here are your top-scoring candidates:\n\n${topCandidates.map((c, i) =>
+      response = `Here are your top-scoring candidates:\n\n${topCandidates.map((c: any, i: any) =>
         `${i + 1}. **${c.name}** — Score: ${c.finalScore?.toFixed(1) ?? "N/A"} | ${c.recommendation ?? "Pending"} | Skills: ${c.skills?.slice(0, 3).join(", ")}`
       ).join("\n")}\n\nWould you like detailed analysis on any of them?`;
       suggestions = ["Show me their full profiles", "Schedule interviews with top 3", "Compare top 2 candidates"];
@@ -33,11 +35,11 @@ router.post("/copilot/chat", async (req, res): Promise<void> => {
     }
   } else if (lower.includes("python") || lower.includes("react") || lower.includes("javascript") || lower.includes("java") || lower.includes("node")) {
     const skill = lower.includes("python") ? "Python" : lower.includes("react") ? "React" : lower.includes("javascript") ? "JavaScript" : lower.includes("java") ? "Java" : "Node.js";
-    const candidates = candidatesTable.findMany();
-    const matched = candidates.filter(c => c.skills?.some(s => s.toLowerCase().includes(skill.toLowerCase()))).slice(0, 5);
+    const candidates = await db.select().from(candidatesTable);
+    const matched = candidates.filter((c: any) => c.skills?.some((s: any) => typeof s === 'string' && s.toLowerCase().includes(skill.toLowerCase()))).slice(0, 5);
     
     if (matched.length > 0) {
-      response = `Found **${matched.length} ${skill} developers** in your talent pool:\n\n${matched.map(c =>
+      response = `Found **${matched.length} ${skill} developers** in your talent pool:\n\n${matched.map((c: any) =>
         `• **${c.name}** — ${c.experience ?? 0}yr exp | Score: ${c.finalScore?.toFixed(1) ?? "Not scored"} | ${c.location ?? "Remote"}`
       ).join("\n")}`;
       suggestions = [`Schedule interviews with ${skill} devs`, "Filter by experience level", "See full profiles"];
@@ -52,9 +54,10 @@ router.post("/copilot/chat", async (req, res): Promise<void> => {
     response = "Here are recommended interview questions based on your active positions:\n\n**Technical Round:**\n• Describe your experience with system design for scale\n• Walk me through a challenging bug you debugged and how you solved it\n• How do you approach code review?\n\n**Behavioral Round:**\n• Tell me about a time you disagreed with a team decision\n• How do you prioritize under competing deadlines?\n• Describe your ideal engineering culture\n\n**Culture Fit:**\n• What type of problems do you find most energizing?\n• How do you stay current with industry trends?";
     suggestions = ["Questions for senior roles", "Questions for junior devs", "Culture-fit questions"];
   } else if (lower.includes("compar") && lower.includes("candidate")) {
-    const topTwo = candidatesTable.findMany()
-      .filter(c => c.finalScore !== null && c.finalScore !== undefined)
-      .sort((a, b) => b.finalScore - a.finalScore)
+    const allCandidates = await db.select().from(candidatesTable);
+    const topTwo = allCandidates
+      .filter((c: any) => c.finalScore !== null && c.finalScore !== undefined)
+      .sort((a: any, b: any) => b.finalScore - a.finalScore)
       .slice(0, 2);
       
     if (topTwo.length >= 2) {
@@ -65,18 +68,19 @@ router.post("/copilot/chat", async (req, res): Promise<void> => {
     }
     suggestions = ["See full candidate profiles", "Schedule interviews", "Export comparison report"];
   } else if (lower.includes("hire") || lower.includes("offer")) {
-    const hireReady = candidatesTable.findMany()
-      .filter(c => c.recommendation === 'Strong Hire' || c.recommendation === 'Hire')
+    const allCandidates = await db.select().from(candidatesTable);
+    const hireReady = allCandidates
+      .filter((c: any) => c.recommendation === 'Strong Hire' || c.recommendation === 'Hire')
       .slice(0, 5);
       
-    response = `Found **${hireReady.length} hire-ready candidates** with Strong Hire or Hire recommendation:\n\n${hireReady.map(c =>
+    response = `Found **${hireReady.length} hire-ready candidates** with Strong Hire or Hire recommendation:\n\n${hireReady.map((c: any) =>
       `• **${c.name}** — ${c.recommendation} | Score: ${c.finalScore?.toFixed(1)} | ${c.skills?.slice(0, 2).join(", ")}`
     ).join("\n") || "No candidates ready yet."}\n\nShall I generate offer letters for any of these?`;
     suggestions = ["Generate offer letters", "See their full profiles", "Schedule final rounds"];
   } else if (lower.includes("analytics") || lower.includes("metric") || lower.includes("stat")) {
-    const apps = applicationsTable.findMany();
+    const apps = await db.select().from(applicationsTable);
     const total = apps.length;
-    const hired = apps.filter(a => a.status === "hired").length;
+    const hired = apps.filter((a: any) => a.status === "hired").length;
     response = `**Platform Analytics Summary:**\n\n• **Total Applications:** ${total}\n• **Hired:** ${hired}\n• **Hiring Rate:** ${total ? Math.round((hired / total) * 100) : 0}%\n• **Avg Time to Hire:** 18.5 days\n\nThe analytics dashboard has full charts including hiring funnel, applications over time, and skill distribution.`;
     suggestions = ["Open full analytics", "Hiring funnel details", "Skill distribution"];
   } else {

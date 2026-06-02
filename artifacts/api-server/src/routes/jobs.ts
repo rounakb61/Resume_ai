@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { jobsTable, applicationsTable, type Job } from "@workspace/db";
-import crypto from "crypto";
+import { db, jobsTable, applicationsTable, type Job } from "@workspace/db";
+import { eq, ilike, and } from "drizzle-orm";
 import {
   ListJobsQueryParams,
   CreateJobBody,
@@ -12,11 +12,11 @@ import {
 
 const router: IRouter = Router();
 
-function formatJob(j: Job) {
-  const applicantCount = applicationsTable.findMany(a => a.jobId === j.id).length;
+async function formatJob(j: Job) {
+  const apps = await db.select().from(applicationsTable).where(eq(applicationsTable.jobId, j.id));
   return {
     ...j,
-    applicantCount,
+    applicantCount: apps.length,
     createdAt: new Date(j.createdAt).toISOString(),
   };
 }
@@ -29,16 +29,17 @@ router.get("/jobs", async (req, res): Promise<void> => {
   }
   const { status, search, location, employmentType } = parsed.data;
 
-  const jobs = jobsTable.findMany(j => {
-    let match = true;
-    if (status && j.status !== status) match = false;
-    if (location && !j.location?.toLowerCase().includes(location.toLowerCase())) match = false;
-    if (employmentType && j.employmentType !== employmentType) match = false;
-    if (search && !j.title.toLowerCase().includes(search.toLowerCase())) match = false;
-    return match;
-  }).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  const conditions = [];
+  if (status) conditions.push(eq(jobsTable.status, status as any));
+  if (location) conditions.push(ilike(jobsTable.location, `%${location}%`));
+  if (employmentType) conditions.push(eq(jobsTable.employmentType, employmentType));
+  if (search) conditions.push(ilike(jobsTable.title, `%${search}%`));
 
-  res.json(jobs.map(formatJob));
+  const jobs = await db.select().from(jobsTable).where(conditions.length > 0 ? and(...conditions) : undefined);
+  jobs.sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+  const formatted = await Promise.all(jobs.map(formatJob));
+  res.json(formatted);
 });
 
 router.post("/jobs", async (req, res): Promise<void> => {
@@ -47,10 +48,8 @@ router.post("/jobs", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const now = new Date();
-  const [job] = jobsTable.insert({
+  const insertData: any = {
     ...parsed.data,
-    id: Math.floor(Math.random() * 1000000),
     requiredSkills: parsed.data.requiredSkills ?? [],
     status: parsed.data.status ?? "open",
     employmentType: parsed.data.employmentType,
@@ -59,11 +58,10 @@ router.post("/jobs", async (req, res): Promise<void> => {
     salaryMin: parsed.data.salaryMin ?? 0,
     salaryMax: parsed.data.salaryMax ?? 0,
     location: parsed.data.location ?? "",
-    createdAt: now,
-    updatedAt: now
-  } as Job);
+  };
+  const [job] = await db.insert(jobsTable).values(insertData).returning();
   
-  res.status(201).json(formatJob(job));
+  res.status(201).json(await formatJob(job as Job));
 });
 
 router.get("/jobs/:id", async (req, res): Promise<void> => {
@@ -72,13 +70,13 @@ router.get("/jobs/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const row = jobsTable.findFirst(j => j.id === params.data.id);
+  const [row] = await db.select().from(jobsTable).where(eq(jobsTable.id, params.data.id));
 
   if (!row) {
     res.status(404).json({ error: "Job not found" });
     return;
   }
-  res.json(formatJob(row));
+  res.json(await formatJob(row as Job));
 });
 
 router.patch("/jobs/:id", async (req, res): Promise<void> => {
@@ -92,14 +90,17 @@ router.patch("/jobs/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const updateData = { ...parsed.data, updatedAt: new Date() } as Partial<Job>;
-  const updated = jobsTable.update(params.data.id, updateData);
-  const job = updated[0];
+  const updateData: any = { ...parsed.data, updatedAt: new Date() };
+  const [job] = await db.update(jobsTable)
+    .set(updateData)
+    .where(eq(jobsTable.id, params.data.id))
+    .returning();
+    
   if (!job) {
     res.status(404).json({ error: "Job not found" });
     return;
   }
-  res.json(formatJob(job));
+  res.json(await formatJob(job as Job));
 });
 
 router.delete("/jobs/:id", async (req, res): Promise<void> => {
@@ -108,12 +109,12 @@ router.delete("/jobs/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const job = jobsTable.findFirst(j => j.id === params.data.id);
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, params.data.id));
   if (!job) {
     res.status(404).json({ error: "Job not found" });
     return;
   }
-  jobsTable.delete(params.data.id);
+  await db.delete(jobsTable).where(eq(jobsTable.id, params.data.id));
   res.sendStatus(204);
 });
 

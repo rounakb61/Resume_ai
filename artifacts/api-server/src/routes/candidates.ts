@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { candidatesTable, jobsTable, type Candidate } from "@workspace/db";
-import crypto from "crypto";
+import { db, candidatesTable, jobsTable, type Candidate } from "@workspace/db";
+import { eq, ilike, and } from "drizzle-orm";
 import {
   ListCandidatesQueryParams,
   CreateCandidateBody,
@@ -28,12 +28,12 @@ router.get("/candidates", async (req, res): Promise<void> => {
   }
   const { search, status } = parsed.data;
 
-  const candidates = candidatesTable.findMany(c => {
-    let match = true;
-    if (status && c.status !== status) match = false;
-    if (search && !c.name.toLowerCase().includes(search.toLowerCase())) match = false;
-    return match;
-  }).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  const conditions = [];
+  if (status) conditions.push(eq(candidatesTable.status, status as any));
+  if (search) conditions.push(ilike(candidatesTable.name, `%${search}%`));
+
+  const candidates = await db.select().from(candidatesTable).where(conditions.length > 0 ? and(...conditions) : undefined);
+  candidates.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   res.json(candidates.map(formatCandidate));
 });
@@ -44,11 +44,10 @@ router.post("/candidates", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const now = new Date();
-  const [c] = candidatesTable.insert({
+  
+  const [c] = await db.insert(candidatesTable).values({
     ...parsed.data,
-    id: Math.floor(Math.random() * 1000000),
-    skills: parsed.data.skills ?? [],
+    skills: parsed.data.skills?.map((sk: any) => String(sk)) ?? [],
     status: "active",
     phone: null,
     location: null,
@@ -61,10 +60,9 @@ router.post("/candidates", async (req, res): Promise<void> => {
     recommendation: null,
     summary: null,
     source: null,
-    createdAt: now,
-    updatedAt: now
-  });
-  res.status(201).json(formatCandidate(c));
+  }).returning();
+  
+  res.status(201).json(formatCandidate(c as Candidate));
 });
 
 router.get("/candidates/:id", async (req, res): Promise<void> => {
@@ -73,12 +71,12 @@ router.get("/candidates/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const c = candidatesTable.findFirst(c => c.id === params.data.id);
+  const [c] = await db.select().from(candidatesTable).where(eq(candidatesTable.id, params.data.id));
   if (!c) {
     res.status(404).json({ error: "Candidate not found" });
     return;
   }
-  res.json(formatCandidate(c));
+  res.json(formatCandidate(c as Candidate));
 });
 
 router.patch("/candidates/:id", async (req, res): Promise<void> => {
@@ -93,14 +91,17 @@ router.patch("/candidates/:id", async (req, res): Promise<void> => {
     return;
   }
   
-  const updateData = { ...parsed.data, updatedAt: new Date() } as Partial<Candidate>;
-  const updated = candidatesTable.update(params.data.id, updateData);
-  const c = updated[0];
+  const updateData: any = { ...parsed.data, updatedAt: new Date() };
+  const [c] = await db.update(candidatesTable)
+    .set(updateData)
+    .where(eq(candidatesTable.id, params.data.id))
+    .returning();
+    
   if (!c) {
     res.status(404).json({ error: "Candidate not found" });
     return;
   }
-  res.json(formatCandidate(c));
+  res.json(formatCandidate(c as Candidate));
 });
 
 // AI Resume Analysis
@@ -110,7 +111,7 @@ router.get("/candidates/:id/resume-analysis", async (req, res): Promise<void> =>
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const c = candidatesTable.findFirst(c => c.id === params.data.id);
+  const [c] = await db.select().from(candidatesTable).where(eq(candidatesTable.id, params.data.id));
   if (!c) {
     res.status(404).json({ error: "Candidate not found" });
     return;
@@ -146,7 +147,11 @@ router.get("/candidates/:id/resume-analysis", async (req, res): Promise<void> =>
 
   const scoreNum = c.finalScore ?? (c.resumeScore ?? 70);
   let hiringRecommendation = "Maybe";
-  if (scoreNum >= 90) hiringRecommendation = "Strong Hire";
+  if (scoreNum +
+        (c.skills?.some((s: any) => typeof s === 'string' && s.toLowerCase().includes("python")) ? 20 : 0) +
+        (c.skills?.some((s: any) => typeof s === 'string' && s.toLowerCase().includes("react")) ? 15 : 0) +
+        (c.skills?.some((s: any) => typeof s === 'string' && s.toLowerCase().includes("node")) ? 15 : 0) +
+        (c.skills?.some((s: any) => typeof s === 'string' && s.toLowerCase().includes("aws")) ? 10 : 0) >= 90) hiringRecommendation = "Strong Hire";
   else if (scoreNum >= 80) hiringRecommendation = "Hire";
   else if (scoreNum < 65) hiringRecommendation = "Reject";
 
@@ -172,8 +177,8 @@ router.get("/candidates/:id/match-score/:jobId", async (req, res): Promise<void>
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const c = candidatesTable.findFirst(c => c.id === params.data.id);
-  const job = jobsTable.findFirst(j => j.id === params.data.jobId);
+  const [c] = await db.select().from(candidatesTable).where(eq(candidatesTable.id, params.data.id));
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, params.data.jobId));
   if (!c || !job) {
     res.status(404).json({ error: "Candidate or job not found" });
     return;

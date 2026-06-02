@@ -1,18 +1,20 @@
 import { Router, type IRouter } from "express";
-import { applicationsTable, candidatesTable, jobsTable } from "@workspace/db";
+import { db, applicationsTable, candidatesTable, jobsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 const router: IRouter = Router();
 
 router.get("/analytics/summary", async (_req, res): Promise<void> => {
-  const allApps = applicationsTable.findMany();
+  const allApps = await db.select().from(applicationsTable);
   const total = allApps.length;
 
-  const shortlistedCount = allApps.filter(a => a.status === "shortlisted").length;
-  const interviewedCount = allApps.filter(a => a.status === "interviewed").length;
-  const hired = allApps.filter(a => a.status === "hired").length;
-  const rejectedCount = allApps.filter(a => a.status === "rejected").length;
+  const shortlistedCount = allApps.filter((a: any) => a.status === "shortlisted").length;
+  const interviewedCount = allApps.filter((a: any) => a.status === "interviewed").length;
+  const hired = allApps.filter((a: any) => a.status === "hired").length;
+  const rejectedCount = allApps.filter((a: any) => a.status === "rejected").length;
   
-  const activeJobsCount = jobsTable.findMany(j => j.status === "open").length;
+  const allJobs = await db.select().from(jobsTable).where(eq(jobsTable.status, "open"));
+  const activeJobsCount = allJobs.length;
 
   const hiringSuccessRate = total > 0 ? Math.round((hired / total) * 100 * 10) / 10 : 0;
 
@@ -29,13 +31,13 @@ router.get("/analytics/summary", async (_req, res): Promise<void> => {
 });
 
 router.get("/analytics/hiring-funnel", async (req, res): Promise<void> => {
-  const allApps = applicationsTable.findMany();
+  const allApps = await db.select().from(applicationsTable);
   
   const applied = allApps.length;
-  const shortlisted = allApps.filter(a => a.status === "shortlisted").length;
-  const interviewed = allApps.filter(a => a.status === "interviewed").length;
-  const offered = allApps.filter(a => a.status === "offered").length;
-  const hired = allApps.filter(a => a.status === "hired").length;
+  const shortlisted = allApps.filter((a: any) => a.status === "shortlisted").length;
+  const interviewed = allApps.filter((a: any) => a.status === "interviewed").length;
+  const offered = allApps.filter((a: any) => a.status === "offered").length;
+  const hired = allApps.filter((a: any) => a.status === "hired").length;
 
   res.json([
     { stage: "Applied", count: applied },
@@ -47,7 +49,7 @@ router.get("/analytics/hiring-funnel", async (req, res): Promise<void> => {
 });
 
 router.get("/analytics/applications-over-time", async (_req, res): Promise<void> => {
-  const allApps = applicationsTable.findMany();
+  const allApps = await db.select().from(applicationsTable);
   
   const grouped = new Map<string, number>();
   for (const app of allApps) {
@@ -68,7 +70,7 @@ router.get("/analytics/applications-over-time", async (_req, res): Promise<void>
 });
 
 router.get("/analytics/skill-distribution", async (_req, res): Promise<void> => {
-  const candidates = candidatesTable.findMany();
+  const candidates = await db.select().from(candidatesTable);
   const skillMap = new Map<string, number>();
   for (const c of candidates) {
     for (const skill of c.skills ?? []) {
@@ -84,12 +86,13 @@ router.get("/analytics/skill-distribution", async (_req, res): Promise<void> => 
 
 router.get("/analytics/top-candidates", async (req, res): Promise<void> => {
   const limit = parseInt(String(req.query.limit ?? "10"), 10) || 10;
-  const candidates = candidatesTable.findMany()
-    .filter(c => c.finalScore !== null && c.finalScore !== undefined)
-    .sort((a, b) => b.finalScore - a.finalScore)
+  const candidates = await db.select().from(candidatesTable);
+  const sorted = candidates
+    .filter((c: any) => c.finalScore !== null && c.finalScore !== undefined)
+    .sort((a: any, b: any) => b.finalScore - a.finalScore)
     .slice(0, limit);
     
-  res.json(candidates.map(c => ({ ...c, createdAt: new Date(c.createdAt).toISOString() })));
+  res.json(sorted.map((c: any) => ({ ...c, createdAt: new Date(c.createdAt).toISOString() })));
 });
 
 export default router;

@@ -1,2 +1,3 @@
 id,name,email,phone,location,skills,experience,education,university,resumeScore,interviewScore,finalScore,recommendation,status,summary,source,createdAt,updatedAt
 857934,Rounak Banerjee,rounakbanerjee0204@gmail.com,,,"[""React"",""Java""]",0,,,0,0,0,,active,,,2026-05-31T14:53:59.376Z,2026-05-31T14:53:59.376Z
+612999,Alice Wonderland,alice.security@example.com,,,"[""Cybersecurity"",""AWS"",""Python"",""Penetration Testing""]",0,,,0,0,0,,active,,,2026-06-01T14:48:43.470Z,2026-06-01T14:48:43.470Z

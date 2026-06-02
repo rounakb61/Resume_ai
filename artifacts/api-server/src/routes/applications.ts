@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { applicationsTable, candidatesTable, jobsTable, type Application, type Candidate, type Job } from "@workspace/db";
-import crypto from "crypto";
+import { db, applicationsTable, candidatesTable, jobsTable, type Application, type Candidate, type Job } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 import {
   ListApplicationsQueryParams,
   CreateApplicationBody,
@@ -33,17 +33,19 @@ router.get("/applications", async (req, res): Promise<void> => {
   }
   const { jobId, candidateId, status } = parsed.data;
 
-  const rows = applicationsTable.findMany(app => {
-    let match = true;
-    if (jobId && app.jobId !== jobId) match = false;
-    if (candidateId && app.candidateId !== candidateId) match = false;
-    if (status && app.status !== status) match = false;
-    return match;
-  }).map(app => {
-    const candidate = candidatesTable.findFirst(c => c.id === app.candidateId);
-    const job = jobsTable.findFirst(j => j.id === app.jobId);
-    return { ...app, candidate, job };
-  }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const conditions = [];
+  if (jobId) conditions.push(eq(applicationsTable.jobId, jobId));
+  if (candidateId) conditions.push(eq(applicationsTable.candidateId, candidateId));
+  if (status) conditions.push(eq(applicationsTable.status, status as any));
+
+  const apps = await db.select().from(applicationsTable).where(conditions.length > 0 ? and(...conditions) : undefined);
+  apps.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  const rows = await Promise.all(apps.map(async (app: any) => {
+    const [candidate] = await db.select().from(candidatesTable).where(eq(candidatesTable.id, app.candidateId));
+    const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, app.jobId));
+    return { ...app, candidate: candidate as Candidate, job: job as Job };
+  }));
 
   res.json(rows.map(formatApp));
 });
@@ -56,11 +58,11 @@ router.get("/applications/ranked", async (req, res): Promise<void> => {
   }
   const { jobId } = parsed.data;
   
-  const rows = applicationsTable.findMany(app => app.jobId === jobId)
-    .map(app => {
-      const candidate = candidatesTable.findFirst(c => c.id === app.candidateId);
-      return { ...app, candidate };
-    });
+  const apps = await db.select().from(applicationsTable).where(eq(applicationsTable.jobId, jobId));
+  const rows = await Promise.all(apps.map(async app => {
+    const [candidate] = await db.select().from(candidatesTable).where(eq(candidatesTable.id, app.candidateId));
+    return { ...app, candidate: candidate as Candidate };
+  }));
 
   const ranked = rows
     .map((r, i) => {
@@ -92,23 +94,15 @@ router.post("/applications", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const now = new Date();
-  const [app] = applicationsTable.insert({
+  const [app] = await db.insert(applicationsTable).values({
     candidateId: parsed.data.candidateId,
     jobId: parsed.data.jobId,
-    coverLetter: parsed.data.coverLetter ?? null,
-    notes: parsed.data.notes ?? null,
     status: "applied",
-    id: Math.floor(Math.random() * 1000000),
-    matchScore: null,
-    resumeScore: null,
-    createdAt: now,
-    updatedAt: now
-  } as Application);
+  }).returning();
 
-  const candidate = candidatesTable.findFirst(c => c.id === app.candidateId);
-  const job = jobsTable.findFirst(j => j.id === app.jobId);
-  res.status(201).json(formatApp({ ...app, candidate: candidate ?? null, job: job ?? null }));
+  const [candidate] = await db.select().from(candidatesTable).where(eq(candidatesTable.id, app.candidateId));
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, app.jobId));
+  res.status(201).json(formatApp({ ...app, candidate: candidate as Candidate ?? null, job: job as Job ?? null }));
 });
 
 router.get("/applications/:id", async (req, res): Promise<void> => {
@@ -118,16 +112,16 @@ router.get("/applications/:id", async (req, res): Promise<void> => {
     return;
   }
   
-  const app = applicationsTable.findFirst(a => a.id === params.data.id);
+  const [app] = await db.select().from(applicationsTable).where(eq(applicationsTable.id, params.data.id));
   if (!app) {
     res.status(404).json({ error: "Application not found" });
     return;
   }
   
-  const candidate = candidatesTable.findFirst(c => c.id === app.candidateId);
-  const job = jobsTable.findFirst(j => j.id === app.jobId);
+  const [candidate] = await db.select().from(candidatesTable).where(eq(candidatesTable.id, app.candidateId));
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, app.jobId));
 
-  res.json(formatApp({ ...app, candidate, job }));
+  res.json(formatApp({ ...app, candidate: candidate as Candidate, job: job as Job }));
 });
 
 router.patch("/applications/:id", async (req, res): Promise<void> => {
@@ -142,17 +136,19 @@ router.patch("/applications/:id", async (req, res): Promise<void> => {
     return;
   }
   
-  const updateData = { ...parsed.data, updatedAt: new Date() } as Partial<Application>;
-  const updated = applicationsTable.update(params.data.id, updateData);
+  const updateData: any = { ...parsed.data, updatedAt: new Date() };
+  const [app] = await db.update(applicationsTable)
+    .set(updateData)
+    .where(eq(applicationsTable.id, params.data.id))
+    .returning();
   
-  const app = updated[0];
   if (!app) {
     res.status(404).json({ error: "Application not found" });
     return;
   }
-  const candidate = candidatesTable.findFirst(c => c.id === app.candidateId);
-  const job = jobsTable.findFirst(j => j.id === app.jobId);
-  res.json(formatApp({ ...app, candidate, job }));
+  const [candidate] = await db.select().from(candidatesTable).where(eq(candidatesTable.id, app.candidateId));
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, app.jobId));
+  res.json(formatApp({ ...app, candidate: candidate as Candidate, job: job as Job }));
 });
 
 export default router;
