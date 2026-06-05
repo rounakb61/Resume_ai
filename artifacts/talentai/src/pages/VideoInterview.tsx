@@ -100,7 +100,7 @@ export default function VideoInterview() {
     formData.append("file", blob, "interview.webm");
 
     try {
-      const res = await fetch(`/api/interviews/${id}/upload-video`, {
+      const res = await fetch(`https://ai-resume-mk0l.onrender.com/api/interviews/${id}/upload-video`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`
@@ -201,3 +201,4 @@ export default function VideoInterview() {
     </Layout>
   );
 }
+

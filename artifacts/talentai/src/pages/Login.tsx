@@ -20,7 +20,7 @@ export default function Login() {
     
     try {
       if (role === "candidate") {
-        const res = await fetch("/api/candidates/login", {
+        const res = await fetch("https://ai-resume-mk0l.onrender.com/api/candidates/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name: identifier, password })
@@ -32,7 +32,7 @@ export default function Login() {
         setAuth(data.token, { id: data.candidateId, name: identifier, role: "candidate" });
         setLocation("/candidate-dashboard");
       } else {
-        const res = await fetch("/api/auth/login", {
+        const res = await fetch("https://ai-resume-mk0l.onrender.com/api/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: identifier, password })
@@ -131,3 +131,4 @@ export default function Login() {
     </div>
   );
 }
+

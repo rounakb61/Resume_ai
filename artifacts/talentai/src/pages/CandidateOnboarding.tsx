@@ -40,7 +40,7 @@ export default function CandidateOnboarding() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch(`/api/onboarding/${onboardingId}/documents`, {
+      const res = await fetch(`https://ai-resume-mk0l.onrender.com/api/onboarding/${onboardingId}/documents`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`
@@ -200,3 +200,4 @@ export default function CandidateOnboarding() {
     </CandidateLayout>
   );
 }
+

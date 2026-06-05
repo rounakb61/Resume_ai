@@ -55,7 +55,7 @@ export default function CandidateDetail() {
               const formData = new FormData();
               formData.append("file", file);
               try {
-                const res = await fetch(`/api/candidates/${id}/upload-resume`, {
+                const res = await fetch(`https://ai-resume-mk0l.onrender.com/api/candidates/${id}/upload-resume`, {
                   method: "POST",
                   headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
                   body: formData
@@ -205,3 +205,4 @@ function AnalysisSection({ title, items, color, dot }: { title: string; items: s
     </div>
   );
 }
+

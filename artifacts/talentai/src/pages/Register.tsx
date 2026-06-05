@@ -17,7 +17,7 @@ export default function Register() {
     setIsLoading(true);
     
     try {
-      const res = await fetch("/api/candidates", {
+      const res = await fetch("https://ai-resume-mk0l.onrender.com/api/candidates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password })
@@ -92,3 +92,4 @@ export default function Register() {
     </div>
   );
 }
+

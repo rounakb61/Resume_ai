@@ -56,7 +56,7 @@ export default function BulkUpload() {
         setProgress((p) => Math.min(p + 10, 90));
       }, 500);
 
-      const response = await fetch("/api/candidates/bulk-upload", {
+      const response = await fetch("https://ai-resume-mk0l.onrender.com/api/candidates/bulk-upload", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`
@@ -234,3 +234,4 @@ export default function BulkUpload() {
     </Layout>
   );
 }
+

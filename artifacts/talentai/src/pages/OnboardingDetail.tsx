@@ -55,7 +55,7 @@ export default function OnboardingDetail() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch(`/api/onboarding/${id}/documents`, {
+      const res = await fetch(`https://ai-resume-mk0l.onrender.com/api/onboarding/${id}/documents`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`
@@ -79,7 +79,7 @@ export default function OnboardingDetail() {
   const handleGenerateOffer = async () => {
     setIsGeneratingOffer(true);
     try {
-      const res = await fetch(`/api/onboarding/${id}/generate-offer`, {
+      const res = await fetch(`https://ai-resume-mk0l.onrender.com/api/onboarding/${id}/generate-offer`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`
@@ -277,3 +277,4 @@ export default function OnboardingDetail() {
     </Layout>
   );
 }
+
