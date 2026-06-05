@@ -33,6 +33,7 @@ export default function CandidateApplyModal({ jobId, open, onOpenChange }: { job
   const candidateResponse = await createCandidate.mutateAsync({ data: {
         name,
         email,
+        password: "defaultPassword123", // Auto-generated password for direct applicants
         experience: parseInt(experience, 10),
         skills: skills.split(",").map(s => s.trim()),
       }});
