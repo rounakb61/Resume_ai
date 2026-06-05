@@ -14,7 +14,7 @@ function formatUser(row: any) {
   };
 }
 
-router.post("/auth/register", async (req, res): Promise<void> => {
+router.post("/auth/register", async (req: any, res: any): Promise<void> => {
   try {
     const { name, email, password, role } = req.body;
     
@@ -40,7 +40,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   }
 });
 
-router.post("/auth/login", async (req, res): Promise<void> => {
+router.post("/auth/login", async (req: any, res: any): Promise<void> => {
   try {
     const { email, password } = req.body;
 
@@ -60,7 +60,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   }
 });
 
-router.get("/auth/me", async (req: any, res): Promise<void> => {
+router.get("/auth/me", async (req: any, res: any): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {

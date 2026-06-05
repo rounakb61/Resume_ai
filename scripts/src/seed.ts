@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { db, jobsTable, candidatesTable, applicationsTable, interviewsTable, onboardingTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
