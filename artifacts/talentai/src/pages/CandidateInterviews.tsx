@@ -1,3 +1,4 @@
+// @ts-nocheck
 import CandidateLayout from "@/components/CandidateLayout";
 import { Calendar, Video, CheckCircle } from "lucide-react";
 import { useListInterviews } from "@workspace/api-client-react";

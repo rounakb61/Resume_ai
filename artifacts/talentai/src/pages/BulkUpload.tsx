@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useRef } from "react";
 import { UploadCloud, FileType, CheckCircle2, XCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";

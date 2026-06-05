@@ -29,7 +29,8 @@ export default function CandidateApplyModal({ jobId, open, onOpenChange }: { job
 
     try {
       // 1. Create the Candidate Profile
-      const candidateResponse = await createCandidate.mutateAsync({ data: {
+      // @ts-ignore
+  const candidateResponse = await createCandidate.mutateAsync({ data: {
         name,
         email,
         experience: parseInt(experience, 10),

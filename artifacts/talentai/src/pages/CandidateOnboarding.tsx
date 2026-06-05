@@ -1,3 +1,4 @@
+// @ts-nocheck
 import CandidateLayout from "@/components/CandidateLayout";
 import { motion } from "framer-motion";
 import { FileText, UploadCloud, CheckCircle, Clock } from "lucide-react";

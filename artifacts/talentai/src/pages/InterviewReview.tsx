@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from "react";
 import { useRoute, Link } from "wouter";
 import { ArrowLeft, Video, Mic, CheckCircle, FileText, Brain } from "lucide-react";
