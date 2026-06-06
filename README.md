@@ -1,6 +1,5 @@
 # TalentAI - AI-Powered Recruitment & Onboarding Platform
 
-![TalentAI Banner](https://img.shields.io/badge/Project-TalentAI-blue?style=for-the-badge)
 
 TalentAI is a complete, production-quality SaaS web application that solves the entire recruitment lifecycle from candidate application to onboarding. Built with modern web technologies and powered by AI, TalentAI provides a seamless, premium experience for both recruiters and candidates.
 
@@ -105,6 +104,4 @@ TalentAI was built with a strong focus on exceptional UI/UX, incorporating:
 - Smooth transitions and hover animations via Framer Motion.
 - A clean, modern SaaS aesthetic comparable to industry leaders.
 
-## 📄 License
 
-This project is licensed under the MIT License.
