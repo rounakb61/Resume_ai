@@ -1,7 +1,8 @@
-# TalentAI - AI-Powered Recruitment & Onboarding Platform
+# MatchPoint - AI-Powered Recruitment & Onboarding Platform
 
 
-TalentAI is a complete, production-quality SaaS web application that solves the entire recruitment lifecycle from candidate application to onboarding. Built with modern web technologies and powered by AI, TalentAI provides a seamless, premium experience for both recruiters and candidates.
+
+MatchPoint is a complete, production-quality SaaS web application that solves the entire recruitment lifecycle from candidate application to onboarding. Built with modern web technologies and powered by AI, MatchPoint provides a seamless, premium experience for both recruiters and candidates.
 
 ## 🌟 Key Features
 
@@ -99,9 +100,8 @@ This project uses a monorepo setup powered by `pnpm` workspaces:
 
 ## 🎨 Design Philosophy
 
-TalentAI was built with a strong focus on exceptional UI/UX, incorporating:
+MatchPoint was built with a strong focus on exceptional UI/UX, incorporating:
 - Glassmorphism and premium gradients.
 - Smooth transitions and hover animations via Framer Motion.
 - A clean, modern SaaS aesthetic comparable to industry leaders.
-
 
